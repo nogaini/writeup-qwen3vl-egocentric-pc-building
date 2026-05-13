@@ -1,0 +1,1797 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fine-tuning Qwen3-VL for fine-grained annotations</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0d1117;
+      --bg-card: #161b22;
+      --bg-code: #1a2030;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-dim: #8b949e;
+      --blue: #58a6ff;
+      --green: #3fb950;
+      --orange: #d29922;
+      --purple: #bc8cff;
+      --red: #f85149;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 18px;
+      line-height: 1.7;
+    }
+
+    a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ── NAV ── */
+    nav {
+      border-bottom: 1px solid var(--border);
+      padding: 14px 0;
+      position: sticky;
+      top: 0;
+      background: rgba(13, 17, 23, 0.92);
+      backdrop-filter: blur(8px);
+      z-index: 10;
+    }
+
+    nav .container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nav-logo {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
+
+    .nav-tag {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 12px;
+      padding: 2px 10px;
+      color: var(--text-dim);
+    }
+
+    /* ── HERO ── */
+    .hero {
+      padding: 72px 0 56px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .hero-kicker {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 16px;
+    }
+
+    .hero h1 {
+      font-size: clamp(26px, 5vw, 40px);
+      font-weight: 700;
+      color: #e6edf3;
+      line-height: 1.25;
+      letter-spacing: -0.5px;
+      margin-bottom: 18px;
+    }
+
+    .hero-sub {
+      font-size: 18px;
+      color: var(--text-dim);
+      margin-bottom: 28px;
+    }
+
+    .meta {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    .meta span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--border);
+    }
+
+    /* ── MAIN CONTENT ── */
+    main {
+      padding: 56px 0 80px;
+    }
+
+    section {
+      margin-bottom: 56px;
+    }
+
+    h2 {
+      font-size: 28px;
+      font-weight: 600;
+      color: #e6edf3;
+      letter-spacing: -0.3px;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h2 .step-badge {
+      display: inline-block;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 8px;
+      color: var(--text-dim);
+      margin-right: 10px;
+      vertical-align: middle;
+      position: relative;
+      top: -1px;
+    }
+
+    h3 {
+      font-size: 22px;
+      font-weight: 600;
+      color: #e6edf3;
+      margin: 28px 0 10px;
+    }
+
+    p {
+      margin-bottom: 14px;
+      color: var(--text);
+    }
+
+    p:last-child {
+      margin-bottom: 0;
+    }
+
+    /* ── CODE ── */
+    code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 15px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      color: var(--green);
+    }
+
+    pre {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 22px;
+      overflow-x: auto;
+      margin: 20px 0;
+      position: relative;
+    }
+
+    pre code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 15px;
+      background: none;
+      border: none;
+      padding: 0;
+      color: var(--text);
+      line-height: 1.65;
+      display: block;
+    }
+
+    .pre-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 4px 4px 0 0;
+      padding: 4px 12px;
+      display: inline-block;
+      margin-bottom: -1px;
+      border-bottom: none;
+    }
+
+    /* Syntax hint classes */
+    .kw {
+      color: var(--purple);
+    }
+
+    .str {
+      color: var(--orange);
+    }
+
+    .cm {
+      color: var(--text-dim);
+      font-style: italic;
+    }
+
+    .num {
+      color: var(--green);
+    }
+
+    .key {
+      color: var(--blue);
+    }
+
+    /* ── PIPELINE STEPS ROW ── */
+    .pipeline-steps {
+      display: flex;
+      gap: 0;
+      margin: 28px 0;
+      flex-wrap: wrap;
+    }
+
+    .ps-item {
+      flex: 1;
+      min-width: 80px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 12px 8px;
+      text-align: center;
+      position: relative;
+    }
+
+    .ps-item:not(:last-child)::after {
+      content: '→';
+      position: absolute;
+      right: -12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+      font-size: 14px;
+      z-index: 1;
+    }
+
+    .ps-item:first-child {
+      border-radius: 8px 0 0 8px;
+    }
+
+    .ps-item:last-child {
+      border-radius: 0 8px 8px 0;
+    }
+
+    .ps-num {
+      font-size: 11px;
+      color: var(--blue);
+      font-weight: 600;
+      margin-bottom: 4px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .ps-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .ps-file {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 4px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── ANNOTATION TYPE CARDS ── */
+    .annot-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin: 20px 0;
+    }
+
+    .annot-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 18px;
+    }
+
+    .annot-card-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e6edf3;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    .badge-blue {
+      background: rgba(88, 166, 255, 0.12);
+      color: var(--blue);
+      border: 1px solid rgba(88, 166, 255, 0.25);
+    }
+
+    .badge-green {
+      background: rgba(63, 185, 80, 0.12);
+      color: var(--green);
+      border: 1px solid rgba(63, 185, 80, 0.25);
+    }
+
+    .badge-purple {
+      background: rgba(188, 140, 255, 0.12);
+      color: var(--purple);
+      border: 1px solid rgba(188, 140, 255, 0.25);
+    }
+
+    .badge-orange {
+      background: rgba(210, 153, 34, 0.12);
+      color: var(--orange);
+      border: 1px solid rgba(210, 153, 34, 0.25);
+    }
+
+    .annot-card p {
+      font-size: 15px;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
+    /* ── VALIDATION TABLE ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 16px;
+    }
+
+    th {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+      color: #e6edf3;
+    }
+
+    td {
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      color: var(--text-dim);
+      vertical-align: top;
+    }
+
+    tr:nth-child(even) td {
+      background: rgba(22, 27, 34, 0.5);
+    }
+
+    /* ── IMAGE PLACEHOLDER ── */
+    .img-placeholder {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 48px 24px;
+      text-align: center;
+      margin: 24px 0;
+      background: var(--bg-card);
+    }
+
+    .img-placeholder-icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+      opacity: 0.4;
+    }
+
+    .img-placeholder-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-dim);
+      margin-bottom: 4px;
+    }
+
+    .img-placeholder-hint {
+      font-size: 12px;
+      color: var(--border);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── CALLOUT ── */
+    .callout {
+      border-left: 3px solid var(--blue);
+      background: rgba(88, 166, 255, 0.05);
+      border-radius: 0 8px 8px 0;
+      padding: 14px 18px;
+      margin: 20px 0;
+      font-size: 16px;
+    }
+
+    .callout.green {
+      border-color: var(--green);
+      background: rgba(63, 185, 80, 0.05);
+    }
+
+    .callout.orange {
+      border-color: var(--orange);
+      background: rgba(210, 153, 34, 0.05);
+    }
+
+    /* ── DESIGN DECISIONS ── */
+    .decisions-list {
+      list-style: none;
+      margin: 16px 0;
+    }
+
+    .decisions-list li {
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 10px;
+      font-size: 16px;
+      background: var(--bg-card);
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+
+    .decisions-list li .icon {
+      font-size: 16px;
+      min-width: 20px;
+      margin-top: 1px;
+    }
+
+    .decisions-list li .text strong {
+      color: #e6edf3;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .decisions-list li .text span {
+      color: var(--text-dim);
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 28px 0;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    footer .container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    /* ── FRAME GRIDS ── */
+    .frame-grid {
+      display: grid;
+      gap: 3px;
+      margin: 20px 0;
+    }
+
+    .frame-grid-5x9 {
+      grid-template-columns: repeat(9, 1fr);
+    }
+
+    .frame-grid-4x4 {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    img {
+      max-width: 100%;
+      height: auto;
+    }
+
+    .frame-grid img {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      border-radius: 3px;
+      display: block;
+    }
+
+    /* ── SIDE-BY-SIDE IMAGES ── */
+    .img-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 20px 0;
+    }
+
+    .img-row img {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    /* ── PRE GRID (3-column, like annot cards) ── */
+    .pre-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin: 20px 0;
+    }
+
+    .pre-grid-3 .pre-wrap {
+      min-width: 0;
+    }
+
+    .pre-grid-3 pre {
+      margin: 0;
+      font-size: 11px;
+    }
+
+    .pre-grid-3 img {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 600px) {
+      .pipeline-steps {
+        flex-direction: column;
+      }
+
+      .ps-item {
+        border-radius: 0 !important;
+      }
+
+      .ps-item:first-child {
+        border-radius: 8px 8px 0 0 !important;
+      }
+
+      .ps-item:last-child {
+        border-radius: 0 0 8px 8px !important;
+      }
+
+      .ps-item:not(:last-child)::after {
+        display: none;
+      }
+
+      .hero {
+        padding: 48px 0 36px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header class="hero">
+    <div class="container">
+      <h1>Can small multimodal LLMs be trained to create complex fine-grained annotations?</h1>
+      <p class="hero-sub">
+        An experiment to see if Qwen3-VL (2B, 4B, 8B) can be distilled from GPT-4o annotations to generate captions,
+        scene graphs and keysteps.
+      </p>
+
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+
+      <section id="idea">
+        <p>
+          Frontier vision models like GPT-4o are remarkably good at understanding sequences of video frames. They can
+          describe what's happening, identify objects and their relationships, and segment activities in time. The catch
+          is cost: it can
+          get expensive to use them to generate annotations for hours of footage.
+        </p>
+        <p>
+          So as a weekend experiment (which took longer than a weekend), I wanted to try out a hypothesis:
+        <div class="callout green">
+          Using GPT-4o once to generate structured fine-grained annotations for a set of domain-specific videos,
+          can we fine-tune much smaller open-source multimodal models
+          do the same job locally?
+        </div>
+        </p>
+      </section>
+      <section id="data">
+        <h2>Data</h2>
+        <p>
+          I chose a set of egocentric (first-person view) PC-building videos for the data. It's a
+          good
+          testbed because the vocabulary is bounded (the objects/components are fairly standard) and the actions are
+          structured (there's a logical build sequence), and since the view is (mostly) egocentric, irrelevant
+          objects/events can be mostly avoided in the annotations.
+        </p>
+        <p>
+          A quick YouTube search-and-filter process yielded 9 egocentric videos of people building PCs. After trimming
+          some irrelevant segments, the net length of footage is ~8.5 hours. Here are some representative frames (each
+          column is a different video):
+        </p>
+        <div class="frame-grid frame-grid-5x9">
+          <img src="assets/images/frames/2HqlcTSlYEA/frame_0220.jpg" alt="">
+          <img src="assets/images/frames/A_sRaVCFHy8/frame_0077.jpg" alt="">
+          <img src="assets/images/frames/DC_Xn2C_L1U/frame_0040.jpg" alt="">
+          <img src="assets/images/frames/NsUPae13lfo/frame_0048.jpg" alt="">
+          <img src="assets/images/frames/SolYxWhlk_k/frame_0046.jpg" alt="">
+          <img src="assets/images/frames/ujihdHQu7Fc/frame_0012.jpg" alt="">
+          <img src="assets/images/frames/v7MYOpFONCU/frame_0046.jpg" alt="">
+          <img src="assets/images/frames/wjASUV6_FMk/frame_0049.jpg" alt="">
+          <img src="assets/images/frames/Y3jEKnteY7I/frame_0065.jpg" alt="">
+          <img src="assets/images/frames/2HqlcTSlYEA/frame_0661.jpg" alt="">
+          <img src="assets/images/frames/A_sRaVCFHy8/frame_0232.jpg" alt="">
+          <img src="assets/images/frames/DC_Xn2C_L1U/frame_0120.jpg" alt="">
+          <img src="assets/images/frames/NsUPae13lfo/frame_0144.jpg" alt="">
+          <img src="assets/images/frames/SolYxWhlk_k/frame_0138.jpg" alt="">
+          <img src="assets/images/frames/ujihdHQu7Fc/frame_0036.jpg" alt="">
+          <img src="assets/images/frames/v7MYOpFONCU/frame_0138.jpg" alt="">
+          <img src="assets/images/frames/wjASUV6_FMk/frame_0147.jpg" alt="">
+          <img src="assets/images/frames/Y3jEKnteY7I/frame_0197.jpg" alt="">
+          <img src="assets/images/frames/2HqlcTSlYEA/frame_1102.jpg" alt="">
+          <img src="assets/images/frames/A_sRaVCFHy8/frame_0387.jpg" alt="">
+          <img src="assets/images/frames/DC_Xn2C_L1U/frame_0200.jpg" alt="">
+          <img src="assets/images/frames/NsUPae13lfo/frame_0240.jpg" alt="">
+          <img src="assets/images/frames/SolYxWhlk_k/frame_0230.jpg" alt="">
+          <img src="assets/images/frames/ujihdHQu7Fc/frame_0061.jpg" alt="">
+          <img src="assets/images/frames/v7MYOpFONCU/frame_0231.jpg" alt="">
+          <img src="assets/images/frames/wjASUV6_FMk/frame_0245.jpg" alt="">
+          <img src="assets/images/frames/Y3jEKnteY7I/frame_0328.jpg" alt="">
+          <img src="assets/images/frames/2HqlcTSlYEA/frame_1543.jpg" alt="">
+          <img src="assets/images/frames/A_sRaVCFHy8/frame_0542.jpg" alt="">
+          <img src="assets/images/frames/DC_Xn2C_L1U/frame_0280.jpg" alt="">
+          <img src="assets/images/frames/NsUPae13lfo/frame_0336.jpg" alt="">
+          <img src="assets/images/frames/SolYxWhlk_k/frame_0322.jpg" alt="">
+          <img src="assets/images/frames/ujihdHQu7Fc/frame_0085.jpg" alt="">
+          <img src="assets/images/frames/v7MYOpFONCU/frame_0323.jpg" alt="">
+          <img src="assets/images/frames/wjASUV6_FMk/frame_0343.jpg" alt="">
+          <img src="assets/images/frames/Y3jEKnteY7I/frame_0459.jpg" alt="">
+          <img src="assets/images/frames/2HqlcTSlYEA/frame_1983.jpg" alt="">
+          <img src="assets/images/frames/A_sRaVCFHy8/frame_0696.jpg" alt="">
+          <img src="assets/images/frames/DC_Xn2C_L1U/frame_0360.jpg" alt="">
+          <img src="assets/images/frames/NsUPae13lfo/frame_0432.jpg" alt="">
+          <img src="assets/images/frames/SolYxWhlk_k/frame_0414.jpg" alt="">
+          <img src="assets/images/frames/ujihdHQu7Fc/frame_0109.jpg" alt="">
+          <img src="assets/images/frames/v7MYOpFONCU/frame_0415.jpg" alt="">
+          <img src="assets/images/frames/wjASUV6_FMk/frame_0441.jpg" alt="">
+          <img src="assets/images/frames/Y3jEKnteY7I/frame_0591.jpg" alt="">
+        </div>
+        <p>
+
+        </p>
+      </section>
+
+      <section id="pipeline">
+        <h2>Overview</h2>
+
+        <img src="assets/pipeline.png" alt="">
+      </section>
+
+      <section id="extraction">
+        <h2><span class="step-badge">Step 1</span>Frame Extraction</h2>
+        <p>
+          This step samples the frames to be sent for annotation: for each video, <code>k</code> frames every
+          <code>n</code>
+          seconds are sampled using <code>ffmpeg</code>. For this experiment, I set <code>k = 1; n = 5</code>, i.e., 1
+          frame is sampled every 5 seconds. That's 720 frames/hour of footage.
+        </p>
+
+        <section id="annotation">
+          <h2><span class="step-badge">Step 2</span>GPT-4o Annotations</h2>
+          <p>
+            In this step, each video's sampled frames are encoded as base64 JPEGs and sent to
+            GPT-4o in batches of 16 frames. Three annotation types are produced for every batch:
+          </p>
+
+          <div class="annot-grid">
+            <div class="annot-card">
+              <div class="annot-card-title">
+                <span class="badge badge-blue">Caption</span>
+              </div>
+              <p>A 3-5 sentence description of what's happening in the clip.</p>
+            </div>
+            <div class="annot-card">
+              <div class="annot-card-title">
+                <span class="badge badge-purple">Scene Graph</span>
+              </div>
+              <p>Nodes (objects with types from a pre-defined taxonomy) and edges (spatial and action relationships).
+                Structured,
+                graph-form understanding of the scene.</p>
+            </div>
+            <div class="annot-card">
+              <div class="annot-card-title">
+                <span class="badge badge-orange">Keysteps</span>
+              </div>
+              <p>Temporal segments specifying which step (activity) is happening, and at which frame range.</p>
+            </div>
+          </div>
+          <h3>
+            Prompts
+          </h3>
+          <div>
+            <span class="badge badge-blue">Caption</span>
+            <pre><code>SYSTEM:
+You are a video understanding assistant. Given a sequence of video frames, produce
+a single fluent paragraph (3-5 sentences) describing what is happening in the video.
+Focus on the main activity, the agents involved, and any notable objects or state changes.
+Be specific and grounded in what is visually present. Do not speculate about off-screen events.
+
+USER:
+Below are {n_frames} frames sampled from a {duration_seconds:.1f}-second video
+at approximately {fps:.2f} fps. Frame resolution: {width}&times;{height}.
+
+Describe what is happening in this video.
+
+Respond with a JSON object:
+{
+  "caption": "&lt;your description here&gt;"
+}</code></pre>
+          </div>
+          <div>
+            <span class="badge badge-purple">Scene Graph</span>
+            <pre><code>SYSTEM:
+You are a video scene graph generator. Given a sequence of video frames and a fixed
+taxonomy, produce a scene graph describing the objects, their relationships, and their
+states visible in the video.
+
+RULES:
+- Use ONLY the node types, edge types, and state attributes from the taxonomy below.
+- Do not invent new vocabulary. If something doesn't fit, pick the closest taxonomy term.
+- Assign a unique short ID to each node (n0, n1, n2, ...).
+- Include only objects and relationships that are clearly visible in the frames.
+
+DIRECTIONALITY RULES:
+- Edge direction is always src &rarr; dst.
+- Edges marked [src: Hands] MUST have a Hands node as src. Never use a component,
+  cable, or tool as src for these edges.
+  Correct:   {"src": "n0", "dst": "n1", "type": "screwing"} where n0 is Hands
+  Wrong:     {"src": "n1", "dst": "n0", "type": "screwing"} where n1 is Screwdriver
+- Edges marked [symmetric] may go in either direction; choose the most natural reading.
+- For spatial edges without a [src:] marker, src is the smaller/contained/dependent
+  part and dst is the larger/containing/receiving part:
+    CPU inserted_in Motherboard  (not Motherboard inserted_in CPU)
+    Motherboard mounted_on PC_Case  (not PC_Case mounted_on Motherboard)
+    RAM seated_in Motherboard  (not Motherboard seated_in RAM)
+    Component inside PC_Case  (not PC_Case inside Component)
+- For state edges (is_installed, is_unboxed, is_powered_off, is_unseated, is_secured),
+  src is always the component whose state is described; dst is a nearby related node
+  (the slot, case, or board it relates to).
+
+TAXONOMY:
+{taxonomy_str}
+
+USER:
+Below are {n_frames} frames sampled from a {duration_seconds:.1f}-second video.
+
+Generate a scene graph for this video using ONLY the taxonomy terms above.
+
+Respond with a JSON object matching this schema exactly:
+{
+  "nodes": [
+    {"id": "n0", "type": "&lt;node_type&gt;", "label": "&lt;human-readable instance name&gt;"}
+  ],
+  "edges": [
+    {"src": "n0", "dst": "n1", "type": "&lt;edge_type&gt;"}
+  ]
+}</code></pre>
+          </div>
+          <div>
+            <span class="badge badge-orange">Keysteps</span>
+            <pre><code>SYSTEM:
+You are a video activity segmentation assistant. Given a sequence of video frames and a
+list of valid activity labels, identify the temporal keysteps in the video.
+
+RULES:
+- Use ONLY the labels from the activity labels list below.
+- Steps must be in temporal order with non-overlapping frame ranges.
+- Start and end frame indices must be within [0, {n_frames_minus_one}].
+- Confidence is your certainty that the label and boundaries are correct (0.0&ndash;1.0).
+- Omit very short transitional frames (&lt; 2 frames) unless clearly a distinct step.
+
+ACTIVITY LABELS:
+{activity_labels_str}
+
+USER:
+Below are {n_frames} frames sampled from a {duration_seconds:.1f}-second video.
+Frame indices run from 0 to {n_frames_minus_one}.
+
+Identify each distinct activity step in temporal order.
+
+Respond with a JSON object:
+{
+  "keysteps": [
+    {
+      "label": "&lt;activity_label&gt;",
+      "start_frame": &lt;int&gt;,
+      "end_frame": &lt;int&gt;,
+      "confidence": &lt;float&gt;
+    }
+  ]
+}</code></pre>
+          </div>
+          <h3>
+            Example annotation
+          </h3>
+          <p>
+            The API calls use JSON schema response format, i.e., GPT-4o is forced to return structured
+            JSON rather than free text. Here's an example annotation for these 16 frames:
+          </p>
+          <div class="frame-grid frame-grid-4x4">
+            <img src="assets/images/frames/2HqlcTSlYEA/frame_0000.jpg" alt="">
+            <img src="assets/images/frames/2HqlcTSlYEA/frame_0001.jpg" alt="">
+            <img src="assets/images/frames/2HqlcTSlYEA/frame_0002.jpg" alt="">
+            <img src="assets/images/frames/2HqlcTSlYEA/frame_0003.jpg" alt="">
+            <img src="assets/images/frames/2HqlcTSlYEA/frame_0004.jpg" alt="">
+            <img src="assets/images/frames/2HqlcTSlYEA/frame_0005.jpg" alt="">
+            <img src="assets/images/frames/2HqlcTSlYEA/frame_0006.jpg" alt="">
+            <img src="assets/images/frames/2HqlcTSlYEA/frame_0007.jpg" alt="">
+            <img src="assets/images/frames/2HqlcTSlYEA/frame_0008.jpg" alt="">
+            <img src="assets/images/frames/2HqlcTSlYEA/frame_0009.jpg" alt="">
+            <img src="assets/images/frames/2HqlcTSlYEA/frame_0010.jpg" alt="">
+            <img src="assets/images/frames/2HqlcTSlYEA/frame_0011.jpg" alt="">
+            <img src="assets/images/frames/2HqlcTSlYEA/frame_0012.jpg" alt="">
+            <img src="assets/images/frames/2HqlcTSlYEA/frame_0013.jpg" alt="">
+            <img src="assets/images/frames/2HqlcTSlYEA/frame_0014.jpg" alt="">
+            <img src="assets/images/frames/2HqlcTSlYEA/frame_0015.jpg" alt="">
+          </div>
+          <div>
+            <span class="badge badge-blue">Caption</span>
+            <pre><code>{
+  "caption": "The video depicts the process of assembling computer components on a desk. Initially, a person opens packages containing various components, including a Gigabyte B550M Gaming motherboard and an AMD Ryzen 5 5600x processor. The individual proceeds to install the processor onto the motherboard. Following this, a Kingston NV3 1TB NVMe storage drive is installed onto the motherboard. The background shows several pieces of computer hardware packaging, such as a case and a power supply box, indicating a setup of new computer components."
+}</code></pre>
+          </div>
+          <div>
+            <span class="badge badge-orange">Keysteps</span>
+            <pre><code>{
+            "keysteps": [
+              {"label": "remove_anti_static_bag", "start_frame": 0,  "end_frame": 2,  "confidence": 0.9},
+              {"label": "inspect_component",      "start_frame": 3,  "end_frame": 5,  "confidence": 0.8},
+              {"label": "align_cpu",              "start_frame": 6,  "end_frame": 7,  "confidence": 0.9},
+              {"label": "seat_cpu",               "start_frame": 8,  "end_frame": 9,  "confidence": 0.9},
+              {"label": "mount_m2_drive",         "start_frame": 11, "end_frame": 12, "confidence": 0.9},
+              {"label": "screw_m2_drive",         "start_frame": 13, "end_frame": 14, "confidence": 0.8}
+            ]
+          }</code></pre>
+          </div>
+          <div>
+            <span class="badge badge-purple">Scene Graph</span>
+            <pre><code>{
+  "nodes": [
+    {"id": "n0", "type": "Hands",       "label": "Person's Hands"},
+    {"id": "n1", "type": "Motherboard", "label": "Gigabyte B550M Gaming Motherboard"},
+    {"id": "n2", "type": "Box",         "label": "Motherboard Box"},
+    {"id": "n3", "type": "CPU",         "label": "AMD Ryzen 5 5600x CPU"},
+    {"id": "n4", "type": "M2_Drive",    "label": "Kingston NV3 1TB NVMe"},
+    {"id": "n5", "type": "Box",         "label": "CPU Box"},
+    {"id": "n6", "type": "Box",         "label": "NVMe Box"}
+  ],
+  "edges": [
+    {"src": "n0", "dst": "n1", "type": "holds"},
+    {"src": "n1", "dst": "n2", "type": "is_unboxed"},
+    {"src": "n0", "dst": "n3", "type": "holds"},
+    {"src": "n3", "dst": "n5", "type": "is_unboxed"},
+    {"src": "n4", "dst": "n6", "type": "is_unboxed"},
+    {"src": "n0", "dst": "n4", "type": "holds"},
+    {"src": "n0", "dst": "n3", "type": "inserting"},
+    {"src": "n1", "dst": "n3", "type": "seated_in"},
+    {"src": "n0", "dst": "n4", "type": "inserting"},
+    {"src": "n1", "dst": "n4", "type": "seated_in"}
+  ]
+}</code></pre>
+            <p>Here's an interactive depiction of the above scene graph rendered using <code>pyvis</code>:</p>
+            <iframe src="assets/sg_example.html" width="100%" height="560"
+              style="border:1px solid var(--border); border-radius:10px; display:block; margin-top:-1px;"
+              scrolling="no"></iframe>
+          </div>
+
+
+          <h3>Costs and Latency</h3>
+          <p>
+            I used this opportunity to try out <code>langfuse</code> for observing costs and latency per
+            annotation type. Across all annotation types, a total of 1146 batches were annotated in ~1 hour 22 mins,
+            costing ~$7.24 in total.
+            Here's the breakdown:
+          </p>
+          <div class="img-row">
+            <img src="assets/annotation_avg_latency_by_type.png" alt="Average latency by annotation type">
+            <img src="assets/annotation_cost_by_type.png" alt="Cost by annotation type">
+          </div>
+          <h3>Using a pre-defined taxonomy</h3>
+          <p>
+            To ensure that the annotation process doesn't introduce duplicate terminology (e.g., <code>CPU socket</code>
+            and <code>processor slot</code>) and illogical object relationships (e.g.,
+            <code>Screwdriver -> holds -> Hand</code>), a domain taxonomy is used, which specifies a controlled
+            vocabulary for node types, edge types, activity labels along with edge directionality constraints. It gets
+            injected directly
+            into the system prompt, and every response is validated against it. I used an LLM (Gemini) to generate a
+            taxonomy
+            based on the most common components and steps in a typical PC building video. Here's what the taxonomy looks
+            like:
+          </p>
+        </section>
+
+        <pre><code># configs/taxonomy.yaml
+# PC building (first-person view) taxonomy.
+# Keep concise — this is injected verbatim into prompts.
+
+domain: "pc_building"
+
+node_type_colors:
+  agents:      "#e06c75"   # red   — the builder's hands
+  components:  "#4c8eda"   # blue  — PC parts
+  cables:      "#e5c07b"   # amber — wiring
+  tools:       "#98c379"   # green — instruments
+  consumables: "#c678dd"   # purple — paste, ties
+  packaging:   "#56b6c2"   # teal  — boxes, bags
+
+node_types:
+  agents:
+    - Hands              # the builder's hands (first-person; full body rarely visible)
+  components:
+    - CPU
+    - GPU
+    - Motherboard
+    - RAM
+    - M2_Drive           # NVMe/SATA M.2 SSD
+    - SATA_Drive         # 2.5" or 3.5" HDD/SSD
+    - PSU                # power supply unit
+    - PC_Case
+    - CPU_Cooler         # air or AIO cooler
+    - Case_Fan
+    - IO_Shield
+    - Standoff           # brass motherboard standoff
+    - GPU_Bracket_Screw  # PCIe slot cover screw/bracket
+  cables:
+    - ATX_Power_Cable    # 24-pin motherboard power
+    - CPU_Power_Cable    # 4/8-pin EPS connector
+    - PCIe_Power_Cable   # 6/8/16-pin GPU power
+    - SATA_Power_Cable
+    - SATA_Data_Cable
+    - Front_Panel_Cable  # power SW, reset SW, HDD LED, USB headers
+    - Fan_Cable          # 3/4-pin fan connector
+  tools:
+    - Screwdriver
+    - Anti_Static_Strap
+  consumables:
+    - Thermal_Paste
+    - Cable_Tie
+  packaging:
+    - Box
+    - Anti_Static_Bag
+
+edge_types:
+  spatial:
+    - name: holds              # Hands holds Component
+      direction: asymmetric
+      src_types: [Hands, Cable_Tie]
+    - name: inserted_in        # CPU inserted_in Motherboard socket
+      direction: asymmetric
+    - name: mounted_on         # Motherboard mounted_on PC_Case
+      direction: asymmetric
+    - name: connected_to       # Cable connected_to Component
+      direction: symmetric
+    - name: seated_in          # RAM seated_in slot
+      direction: asymmetric
+    - name: next_to
+      direction: symmetric
+    - name: inside             # Component inside PC_Case
+      direction: asymmetric
+  action:
+    - name: screwing           # Hands screwing Screw into Motherboard
+      direction: asymmetric
+      src_types: [Hands, Screwdriver]
+    - name: aligning           # Hands aligning Component
+      direction: asymmetric
+      src_types: [Hands]
+    - name: inserting          # Hands inserting Component into slot
+      direction: asymmetric
+      src_types: [Hands]
+    - name: removing           # Hands removing Component
+      direction: asymmetric
+      src_types: [Hands]
+    - name: applying           # Hands applying Thermal_Paste to CPU
+      direction: asymmetric
+      src_types: [Hands, Thermal_Paste]
+    - name: routing            # Hands routing Cable through PC_Case
+      direction: asymmetric
+      src_types: [Hands]
+    - name: pressing           # Hands pressing RAM/GPU into slot
+      direction: asymmetric
+      src_types: [Hands]
+    - name: connecting         # Hands connecting Cable to Component
+      direction: asymmetric
+      src_types: [Hands, Front_Panel_Cable]
+    - name: disconnecting
+      direction: asymmetric
+      src_types: [Hands]
+  state:
+    - name: is_installed       # component fully secured in place
+      direction: asymmetric
+    - name: is_unboxed         # removed from retail packaging
+      direction: asymmetric
+    - name: is_powered_off
+      direction: asymmetric
+    - name: is_unseated        # partially or fully removed from slot
+      direction: asymmetric
+    - name: is_secured         # screwed down / latched
+      direction: asymmetric
+
+activity_labels:
+  # Use these exact strings as keystep labels.
+  unboxing:
+    - unbox_component
+    - remove_anti_static_bag
+    - inspect_component
+  case_prep:
+    - install_io_shield
+    - install_standoffs
+    - remove_pcie_bracket
+    - remove_side_panel
+  cpu_install:
+    - open_cpu_socket
+    - align_cpu
+    - seat_cpu
+    - close_cpu_socket_lever
+  cooling:
+    - apply_thermal_paste
+    - mount_cooler
+    - connect_cooler_fan
+  ram_install:
+    - open_ram_slot_latches
+    - align_ram
+    - seat_ram
+  storage:
+    - mount_m2_drive
+    - screw_m2_drive
+    - mount_sata_drive
+    - connect_sata_cable
+  motherboard:
+    - place_motherboard_in_case
+    - screw_motherboard
+  gpu_install:
+    - align_gpu
+    - seat_gpu
+    - screw_gpu_bracket
+    - connect_pcie_power
+  psu_cabling:
+    - install_psu
+    - connect_atx_power
+    - connect_cpu_power
+    - connect_front_panel
+    - connect_case_fans
+    - route_cables
+    - cable_tie
+  verification:
+    - power_on_test
+    - bios_check
+    - close_side_panel</code></pre>
+
+        <p>
+
+        </p>
+
+        <section id="validation">
+          <h2><span class="step-badge">Steps 3 + 4</span>Validation &amp; Error Patching</h2>
+          <p>
+            To ensure that there were no bogus annotations (empty strings, non-existing components, illogical object
+            relationships, etc.), there's a basic validation step after the annotations are generated. These were the
+            checks used:
+          </p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Checks</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="badge badge-blue">Caption</span></td>
+                <td>Is a string, at least 10 characters</td>
+              </tr>
+              <tr>
+                <td><span class="badge badge-purple">Scene Graph</span></td>
+                <td>Node/edge types in taxonomy; edge src/dst reference existing node IDs; <code>src_types</code>
+                  constraints satisfied</td>
+              </tr>
+              <tr>
+                <td><span class="badge badge-orange">Keysteps</span></td>
+                <td>Label in taxonomy; <code>start_frame ≤ end_frame</code>; indices within frame count</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p>
+            Failed batches are written to disk
+            as pretty-printed JSON and then patched manually.
+          </p>
+
+          <p>
+            All validation failures which I encountered were scene graph annotations failing edge directionality
+            constraints.
+            These were relatively easy to spot and fix manually.
+          </p>
+        </section>
+
+        <section id="dataset">
+          <h2><span class="step-badge">Step 5</span>Building the Instruction-Tuning Dataset</h2>
+          <p>
+            Once the annotations are validated and patched, they are assembled into
+            JSONL files in the <code>ChatML</code> format commonly used by multimodal instruction-tuning frameworks.
+          </p>
+
+          <h3>Data splits</h3>
+          <p>
+            The data is split into <code>train / val / test</code> (80 : 10 : 10 ratio) at the video level instead of
+            the
+            example level, since if frames from the same video appear in both <code>train</code> and <code>test</code>,
+            the model can trivially
+            memorize visual context and inflate performance. Each record corresponds to one annotation batch of a single
+            annotation type. Here's a sample record:
+          </p>
+
+          <pre><code>{
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {"type": "image", "image": "/data/frames/2HqlcTSlYEA/frame_0000.jpg"},
+        {"type": "image", "image": "/data/frames/2HqlcTSlYEA/frame_0001.jpg"},
+        {"type": "image", "image": "/data/frames/2HqlcTSlYEA/frame_0002.jpg"},
+        {"type": "image", "image": "/data/frames/2HqlcTSlYEA/frame_0003.jpg"},
+        {"type": "image", "image": "/data/frames/2HqlcTSlYEA/frame_0004.jpg"},
+        {"type": "image", "image": "/data/frames/2HqlcTSlYEA/frame_0005.jpg"},
+        {"type": "image", "image": "/data/frames/2HqlcTSlYEA/frame_0006.jpg"},
+        {"type": "image", "image": "/data/frames/2HqlcTSlYEA/frame_0007.jpg"},
+        {"type": "image", "image": "/data/frames/2HqlcTSlYEA/frame_0008.jpg"},
+        {"type": "image", "image": "/data/frames/2HqlcTSlYEA/frame_0009.jpg"},
+        {"type": "image", "image": "/data/frames/2HqlcTSlYEA/frame_0010.jpg"},
+        {"type": "image", "image": "/data/frames/2HqlcTSlYEA/frame_0011.jpg"},
+        {"type": "image", "image": "/data/frames/2HqlcTSlYEA/frame_0012.jpg"},
+        {"type": "image", "image": "/data/frames/2HqlcTSlYEA/frame_0013.jpg"},
+        {"type": "image", "image": "/data/frames/2HqlcTSlYEA/frame_0014.jpg"},
+        {"type": "image", "image": "/data/frames/2HqlcTSlYEA/frame_0015.jpg"},
+        {
+          "type": "text",
+          "text": "Identify all visible objects and their spatial and action relationships as a scene graph."
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"nodes\":[{\"id\":\"n0\",\"type\":\"Hands\",\"label\":\"Person's Hands\"},{\"id\":\"n1\",\"type\":\"Motherboard\",\"label\":\"Gigabyte B550M Gaming Motherboard\"},{\"id\":\"n2\",\"type\":\"Box\",\"label\":\"Motherboard Box\"},{\"id\":\"n3\",\"type\":\"CPU\",\"label\":\"AMD Ryzen 5 5600x CPU\"},{\"id\":\"n4\",\"type\":\"M2_Drive\",\"label\":\"Kingston NV3 1TB NVMe\"},{\"id\":\"n5\",\"type\":\"Box\",\"label\":\"CPU Box\"},{\"id\":\"n6\",\"type\":\"Box\",\"label\":\"NVMe Box\"}],\"edges\":[{\"src\":\"n0\",\"dst\":\"n1\",\"type\":\"holds\"},{\"src\":\"n1\",\"dst\":\"n2\",\"type\":\"is_unboxed\"},{\"src\":\"n0\",\"dst\":\"n3\",\"type\":\"holds\"},{\"src\":\"n3\",\"dst\":\"n5\",\"type\":\"is_unboxed\"},{\"src\":\"n4\",\"dst\":\"n6\",\"type\":\"is_unboxed\"},{\"src\":\"n0\",\"dst\":\"n4\",\"type\":\"holds\"},{\"src\":\"n0\",\"dst\":\"n3\",\"type\":\"inserting\"},{\"src\":\"n1\",\"dst\":\"n3\",\"type\":\"seated_in\"},{\"src\":\"n0\",\"dst\":\"n4\",\"type\":\"inserting\"},{\"src\":\"n1\",\"dst\":\"n4\",\"type\":\"seated_in\"}]}"
+        }
+      ]
+    }
+  ]
+}</code></pre>
+        </section>
+
+        <section id="training">
+          <h2><span class="step-badge">Step 6</span>Training Qwen3-VL LoRA adapters</h2>
+          <p>
+            I chose LoRA training since I wanted short training runs for this experiment. For the base models, I picked
+            Qwen3-VL with multiple parameter variants (2B, 4B, 8B). Qwen3-VL is one of the recent strong open-weights
+            multimodal LLMs available, and using the different parameter variants makes it easy to reason about
+            performance scaling over parameter size.
+          </p>
+          <p>
+            The fine-tuning was done using the <code>axolotl</code> LLM training framework. I trained only on the
+            language model layers, assuming the vision
+            layers are already adequate for this domain. Here is a sample config file
+            which I had used for the 4B model:
+          </p>
+          <pre><code>base_model: Qwen/Qwen3-VL-4B-Instruct
+output_dir: outputs/qwen3vl_4b/
+
+processor_type: AutoProcessor
+chat_template: qwen2_vl          # Qwen3-VL reuses qwen2-vl template
+skip_prepare_dataset: true
+remove_unused_columns: false
+sample_packing: false
+
+datasets:
+  - path: outputs/dataset_normalized/train.jsonl
+    type: chat_template
+test_datasets:
+  - path: outputs/dataset_normalized/val.jsonl
+    type: chat_template
+
+sequence_len: 3904
+
+# Training
+bf16: true
+fp16: false
+tf32: false
+torch_dtype: bfloat16
+flash_attention: true
+gradient_checkpointing: true
+gradient_checkpointing_kwargs:
+  use_reentrant: false
+requires_inputs_embeds_grad: true
+num_epochs: 8
+warmup_ratio: 0.03
+lr_scheduler: cosine
+optimizer: adamw_torch_fused
+micro_batch_size: 2
+gradient_accumulation_steps: 8
+learning_rate: 2e-4
+
+# LoRA language model layers only (vision tower frozen)
+adapter: lora
+lora_r: 16
+lora_alpha: 32
+lora_dropout: 0.05
+lora_target_modules: 'model.language_model.layers.[\d]+.(mlp|self_attn).(up|down|gate|q|k|v|o)_proj'
+
+# Best-checkpoint-only strategy
+eval_strategy: steps
+eval_steps: 20
+save_strategy: steps
+save_steps: 20
+save_total_limit: 1
+load_best_model_at_end: true
+metric_for_best_model: eval_loss
+greater_is_better: false
+save_safetensors: true
+dataset_prepared_path: outputs/_prepared_cache/
+</code></pre>
+          <p>The loss curves show a fast plateuing of all three models, but the 8B model stabilizes at a higher loss,
+            while the other two models track almost identically:
+          </p>
+          <div class="img-row">
+            <img src="assets/train_loss_curves.png" alt="Train loss curves">
+            <img src="assets/eval_loss_curves.png" alt="Eval loss curves">
+          </div>
+        </section>
+
+        <section id="evaluation">
+          <h2><span class="step-badge">Step 7</span>Evaluation</h2>
+          <p>
+            Since we do not have manually curated annotations, a key assumption I make is that the GPT-4o annotations
+            are human-quality ground truth (which is a really strong assumption). I evaluated the models using a
+            combination of hard (objective) metrics and LLM-as-a-Judge API calls. I chose GPT-5.5 as the Judge because
+            it
+            is currently the strongest OpenAI model and required minimal changes to existing code. I describe the
+            metrics below:
+          </p>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Metric Name</th>
+                <th>Annotation Type</th>
+                <th>Metric Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>factual_accuracy</code></td>
+                <td><span class="badge badge-blue">Caption</span></td>
+                <td>LLM-as-a-Judge</td>
+                <td>Evaluates if the described objects and actions are actually correct on a 1-5 scale.</td>
+              </tr>
+              <tr>
+                <td><code>completeness</code></td>
+                <td><span class="badge badge-blue">Caption</span></td>
+                <td>LLM-as-a-Judge</td>
+                <td>Measures if the prediction covers the main events from the ground truth on a 1-5 scale.</td>
+              </tr>
+              <tr>
+                <td><code>specificity</code></td>
+                <td><span class="badge badge-blue">Caption</span></td>
+                <td>LLM-as-a-Judge</td>
+                <td>Checks if the text is grounded in specific visible details rather than being generic (1-5 scale).
+                </td>
+              </tr>
+              <tr>
+                <td><code>node_type_f1</code></td>
+                <td><span class="badge badge-purple">Scene Graph</span></td>
+                <td>Hard Metric</td>
+                <td>A token-level multiset F1 score measuring how well the predicted object types match the ground
+                  truth.</td>
+              </tr>
+              <tr>
+                <td><code>edge_type_f1</code></td>
+                <td><span class="badge badge-purple">Scene Graph</span></td>
+                <td>Hard Metric</td>
+                <td>A token-level multiset F1 score measuring how well the predicted relationship types match the ground
+                  truth.
+                </td>
+              </tr>
+              <tr>
+                <td><code>semantic_quality</code></td>
+                <td><span class="badge badge-purple">Scene Graph</span></td>
+                <td>LLM-as-a-Judge</td>
+                <td>Evaluates if the predicted nodes and edges capture the same overall scene meaning as the ground
+                  truth on a 1-5
+                  scale.</td>
+              </tr>
+              <tr>
+                <td><code>label_f1</code></td>
+                <td><span class="badge badge-orange">Keysteps</span></td>
+                <td>Hard Metric</td>
+                <td>A multiset F1 score evaluating how well the predicted activity labels match the actual labels.</td>
+              </tr>
+              <tr>
+                <td><code>mean_iou</code></td>
+                <td><span class="badge badge-orange">Keysteps</span></td>
+                <td>Hard Metric</td>
+                <td>Calculates the average temporal overlap (Intersection over Union) of the predicted step frame ranges
+                  versus
+                  the ground truth.</td>
+              </tr>
+              <tr>
+                <td><code>ordering_quality</code></td>
+                <td><span class="badge badge-orange">Keysteps</span></td>
+                <td>LLM-as-a-Judge</td>
+                <td>Evaluates the temporal coherence and correct chronological ordering of the predicted steps on a 1-5
+                  scale.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            These were the scores obtained in the evaluation:
+          </p>
+          <div class="pre-grid-3">
+            <img src="assets/caption_scores.png" alt="Caption scores">
+            <img src="assets/keysteps_scores.png" alt="Keysteps scores">
+            <img src="assets/scene_graph_scores.png" alt="Scene graph scores">
+          </div>
+
+          <h3>Observations</h2>
+            <p>
+              1. Across all annotation types, the fine-tuned models (-ft)
+              consistently outperform their zero-shot (-zs) counterparts on both hard metrics and LLM-as-a-judge
+              evaluations.
+            </p>
+            <p>
+              2. For scene graph generation, zero-shot performance is near zero, suggesting that this annotation type is
+              the hardest for the models to learn.
+            </p>
+            <p>
+              3. There were no big gains on increasing parameter size from 4B to 8B. The
+              4b-ft
+              model matches the 8b-ft model on most metrics, and is noticeably better for scene graph generation.
+            </p>
+            <h3>Qualitative examples</h2>
+              <p>
+                Beyond what the metrics show, I briefly had a look at some qualitative examples. Here are some responses
+                which scored well for scene graph generation, from the fine-tuned 4B model (the scene graphs are
+                interactive and can be zoomed in):
+              </p>
+
+              <table style="table-layout: fixed; width: 100%;">
+                <thead>
+                  <tr>
+                    <th style="width: 25%;">Frames</th>
+                    <th style="width: 25%;">Caption</th>
+                    <th style="width: 25%;">Keysteps</th>
+                    <th style="width: 25%;">Scene Graph</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <div class="frame-grid frame-grid-4x4" style="margin: 0;">
+                        <img src="assets/images/test/13_0.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/13_1.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/13_2.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/13_3.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/13_4.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/13_5.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/13_6.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/13_7.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/13_8.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/13_9.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/13_10.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/13_11.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/13_12.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/13_13.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/13_14.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/13_15.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                      </div>
+                    </td>
+                    <td>A person is assembling a computer, using a drill to secure components inside a computer case.
+                      They
+                      are working with a Gigabyte B550M DS3H motherboard and a Thermaltake case, installing parts and
+                      connecting cables. The process involves placing the motherboard, installing fans, and securing the
+                      case panels with screws.</td>
+                    <td>
+                      <pre style="font-size: 0.75em; white-space: pre-wrap; margin: 0;">1. remove_side_panel (frames 0–1)
+2. screw_motherboard (frames 2–3)
+3. place_motherboard_in_case (frames 4–5)
+4. screw_motherboard (frames 6–7)
+5. connect_case_fans (frames 8–9)
+6. screw_motherboard (frames 10–11)
+7. close_side_panel (frames 12–15)</pre>
+                    </td>
+                    <td>
+                      <iframe src="assets/sg_qual_4.html"
+                        style="width: 100%; height: 220px; border: none; border-radius: 4px;">
+                      </iframe>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="frame-grid frame-grid-4x4" style="margin: 0;">
+                        <img src="assets/images/test/41_0.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/41_1.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/41_2.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/41_3.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/41_4.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/41_5.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/41_6.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/41_7.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/41_8.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/41_9.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/41_10.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/41_11.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/41_12.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/41_13.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/41_14.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/41_15.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                      </div>
+                    </td>
+                    <td>A person is installing a graphics card into a computer case. They hold the card and carefully
+                      align
+                      it with the PCIe slot, then secure it in place using a screwdriver. The setup includes multiple
+                      fans
+                      and components visible inside the case.</td>
+                    <td>
+                      <pre style="font-size: 0.75em; white-space: pre-wrap; margin: 0;">1. remove_pcie_bracket (frames 0–1)
+2. align_gpu (frames 2–3)
+3. seat_gpu (frames 4–10)
+4. screw_gpu_bracket (frames 11–15)</pre>
+                    </td>
+                    <td>
+                      <iframe src="assets/sg_qual_6.html"
+                        style="width: 100%; height: 220px; border: none; border-radius: 4px;">
+                      </iframe>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="frame-grid frame-grid-4x4" style="margin: 0;">
+                        <img src="assets/images/test/1_0.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/1_1.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/1_2.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/1_3.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/1_4.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/1_5.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/1_6.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/1_7.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/1_8.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/1_9.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/1_10.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/1_11.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/1_12.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/1_13.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/1_14.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/1_15.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                      </div>
+                    </td>
+                    <td>A person is unboxing and preparing a computer component, specifically a Freezer 36 A-RGB Black
+                      case
+                      fan. They open the box, remove the packaging, and take out the fan and its accessories. The
+                      individual
+                      then begins installing the fan onto a Gigabyte B550M DS3H motherboard, using a screwdriver to
+                      secure
+                      it in place. Various other computer components, including a TUF Gaming graphics card, are visible
+                      in
+                      the background.</td>
+                    <td>
+                      <pre style="font-size: 0.75em; white-space: pre-wrap; margin: 0;">1. unbox_component (frames 0–3)
+2. remove_anti_static_bag (frames 4–5)
+3. inspect_component (frames 6–7)
+4. remove_anti_static_bag (frames 8–10)
+5. screw_motherboard (frames 11–15)</pre>
+                    </td>
+                    <td>
+                      <iframe src="assets/sg_qual_7.html"
+                        style="width: 100%; height: 220px; border: none; border-radius: 4px;">
+                      </iframe>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <p>
+                And here are some examples with the worst scores for scene graph generation (a blank scene graph means
+                that the generated text was not a valid JSON):
+              </p>
+
+              <table style="table-layout: fixed; width: 100%;">
+                <thead>
+                  <tr>
+                    <th style="width: 25%;">Frames</th>
+                    <th style="width: 25%;">Caption</th>
+                    <th style="width: 25%;">Keysteps</th>
+                    <th style="width: 25%;">Scene Graph</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <div class="frame-grid frame-grid-4x4" style="margin: 0;">
+                        <img src="assets/images/test/11_0.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/11_1.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/11_2.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/11_3.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/11_4.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/11_5.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/11_6.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/11_7.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/11_8.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/11_9.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/11_10.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/11_11.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/11_12.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/11_13.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/11_14.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/11_15.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                      </div>
+                    </td>
+                    <td>A person is assembling a computer, focusing on the installation of components inside a computer
+                      case. They start by removing the GPU brackets from the case, ensuring the correct standoff
+                      positions
+                      are set. The individual uses a drill to secure the brackets in place, preparing the case for the
+                      installation of a graphics card. Various tools and components, including a motherboard and cooling
+                      fans, are visible on the work surface.</td>
+                    <td>
+                      <pre style="font-size: 0.75em; white-space: pre-wrap; margin: 0;">1. remove_side_panel (frames 0–1)
+2. remove_pcie_bracket (frames 5–7)
+3. screw_motherboard (frames 10–14)</pre>
+                    </td>
+                    <td>
+                      <iframe src="assets/sg_qual_bad_1.html"
+                        style="width: 100%; height: 220px; border: none; border-radius: 4px;">
+                      </iframe>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="frame-grid frame-grid-4x4" style="margin: 0;">
+                        <img src="assets/images/test/19_0.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/19_1.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/19_2.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/19_3.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/19_4.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/19_5.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/19_6.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/19_7.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/19_8.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/19_9.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/19_10.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/19_11.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/19_12.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/19_13.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/19_14.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/19_15.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                      </div>
+                    </td>
+                    <td>A person is assembling a computer, focusing on organizing cables inside a PC case. They are seen
+                      managing and securing various cables, likely connecting components such as the motherboard and
+                      power
+                      supply. The workspace includes tools and components like a Gigabyte motherboard box, indicating
+                      the
+                      setup process is in progress. The person moves around the room, possibly to retrieve additional
+                      tools
+                      or parts, as shown by the view of a dining area with a clock and other items on the table.</td>
+                    <td>
+                      <pre style="font-size: 0.75em; white-space: pre-wrap; margin: 0;">1. connect_case_fans (frames 0–9)
+2. cable_tie (frames 10–11)</pre>
+                    </td>
+                    <td>
+                      <iframe src="assets/sg_qual_bad_6.html"
+                        style="width: 100%; height: 220px; border: none; border-radius: 4px;">
+                      </iframe>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div class="frame-grid frame-grid-4x4" style="margin: 0;">
+                        <img src="assets/images/test/48_0.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/48_1.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/48_2.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/48_3.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/48_4.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                        <img src="assets/images/test/48_5.jpg"
+                          style="width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 3px;">
+                      </div>
+                    </td>
+                    <td>A person is setting up and showcasing a PC build with RGB lighting. The setup includes a monitor
+                      displaying software settings, a keyboard, and a mouse. The person gives a thumbs-up and makes a
+                      heart
+                      shape with their hands, indicating satisfaction with the build. The video concludes with a
+                      colorful
+                      outro screen thanking viewers for watching.</td>
+                    <td>
+                      <pre
+                        style="font-size: 0.75em; white-space: pre-wrap; margin: 0;">1. power_on_test (frames 0–4)</pre>
+                    </td>
+                    <td>
+                      <iframe src="assets/sg_qual_bad_7.html"
+                        style="width: 100%; height: 220px; border: none; border-radius: 4px;">
+                      </iframe>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+
+        </section>
+
+        <h3>Costs and Latency</h3>
+        <p>
+          Similar to the initial annotation process, I logged the LLM-as-a-Judge evaluations on the <code>test</code>
+          split through <code>langfuse</code>. Across all annotation types, a total of 147 records were annotated in
+          ~7 mins, costing ~$10.2 in total. Here's
+          the breakdown:
+        </p>
+        <div class="img-row">
+          <img src="assets/judge_latency_plot.png" alt="Average latency by annotation type">
+          <img src="assets/judge_cost_plot.png" alt="Cost by annotation type">
+        </div>
+
+
+
+        <section id="caveats">
+          <h2>Final Thoughts</h2>
+          <p>
+            1. From a preliminary look, it does seem the smaller
+            Qwen3-VL models are capable of learning complex fine-grained spatial (scene graphs) and temporal
+            (keysteps) annotations. I need to do a deeper dive to see whether this can reach levels of practical
+            utility.
+          </p>
+          <p>
+            2. The biggest caveat of this experiment is that the evaluation is done on a measly 49 test
+            records per annotation type.
+            This is also likely the reason for the high variance seen in the score plots.
+          </p>
+          <p>
+            3. As mentioned earlier, I assume GPT-4o annotations as absolute
+            ground truth.
+            These are likely to have errors and ideally need to be curated further before usage as training data.
+          </p>
+          <p>
+            4. Using another GPT model as the Judge might have introduced some bias in the
+            LLM-as-a-Judge scores. It is probably best to use a strong non-OpenAI model for a more impartial
+            evaluation.
+          </p>
+        </section>
+
+    </div>
+  </main>
+
+</body>
+
+</html>
